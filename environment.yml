@@ -1,0 +1,29 @@
+name: co2_saf_gnn
+channels:
+  - pytorch
+  - nvidia
+  - pytorch-geometric
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pytorch>=2.0
+  - pytorch-cuda=11.8            # Remove if CPU-only
+  - pyg                          # torch_geometric
+  - pip
+  - pip:
+    - ase>=3.23                  # Atomistic Simulation Environment
+    - lmdb                       # OC20 data format
+    - requests                   # Catalysis Hub API
+    - tqdm
+    - numpy
+    - pandas
+    - scikit-learn
+    - scipy
+    - joblib
+    - matplotlib
+    - seaborn
+    - pyyaml
+    - wandb                      # Optional: experiment tracking
+    - mp-api                     # Materials Project API
+    - pymatgen                   # Structure manipulation
