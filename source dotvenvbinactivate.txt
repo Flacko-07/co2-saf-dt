@@ -1,8 +1,0 @@
-python generate_synthetic_runs.py
-python blended_datasets.py   # blend datasets
-python train_oracle.py
-python build_pool.py
-python active_learning_oracle.py
-python process_gan.py
-python catalyst_gan.py
-python score_candidates.py

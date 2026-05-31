@@ -1,4 +1,5 @@
 .venv/
+source dotvenvbinactivate.txt
 venv/
 env/
 __pycache__/
