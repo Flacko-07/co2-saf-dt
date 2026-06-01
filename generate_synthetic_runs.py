@@ -1,48 +1,47 @@
 """
-generate_synthetic_runs.py (variable selectivity version)
+generate_synthetic_runs.py (descriptor‑driven, relative volcano)
 """
-import itertools
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
 from plant_calibrated import CO2_to_SAF_Plant
-from config import PROC_DIR
+from config import PROC_DIR, DESCRIPTORS_CSV
 
-CALIBRATED_CO2_FEED = 0.128585  # <-- copy the exact value from plant_calibrated.py output
+desc = pd.read_csv(DESCRIPTORS_CSV)
+desc["facet"] = desc["facet"].astype(str)
 
-facets = ["110", "100", "111"]
-promoters = ["none", "K", "Co", "Pt", "Pd", "Ru", "Rh", "Re"]
-T_grid = range(473, 678, 5)
-P_grid = range(1, 41, 2)
+# Load reference catalyst (same as used in calibration)
+ref_row = desc[(desc["facet"] == "110") & (desc["promoter"] == "K")].iloc[0]
+REF_E_CO = ref_row["E_CO"]
+REF_E_H  = ref_row["E_H"]
 
-PROMOTER_MULTIPLIER = {
-    "none": 1.00, "K": 1.15, "Co": 1.08, "Pt": 1.10,
-    "Pd": 1.12, "Ru": 1.18, "Rh": 1.20, "Re": 1.25,
-}
+# Use the calibrated value from plant_calibrated.py
+REF_CO_CONSUMPTION = 0.04897  # <-- replace with the printed value
+
+T_grid = np.arange(473, 678, 5)
+P_grid = np.arange(1, 41, 2)
 
 rows = []
-total = len(facets) * len(promoters) * len(T_grid) * len(P_grid)
-pbar = tqdm(total=total, desc="Simulating")
+for _, cat in tqdm(desc.iterrows(), total=len(desc), desc="Catalysts"):
+    for T in T_grid:
+        for P in P_grid:
+            plant = CO2_to_SAF_Plant(
+                T_rwgs=673, P_bar=P, T_ft=T, catalyst_mass_g=1.0,
+                ref_E_CO=REF_E_CO, ref_E_H=REF_E_H,
+                E_CO=cat["E_CO"], E_H=cat["E_H"], E_O=cat["E_O"], E_OH=cat["E_OH"],
+                ref_co_consumption=REF_CO_CONSUMPTION,
+            )
+            fresh = {"CO2": 0.1191, "H2": 3 * 0.1191}   # same feed rate as during calibration
+            res = plant.run_simulation(fresh)
+            rows.append({
+                "facet": cat["facet"],
+                "promoter": cat["promoter"],
+                "temperature_K": T,
+                "pressure_bar": P,
+                "STY_mg_gcat_h": res["STY_mg_gcat_h"],
+                "SAF_selectivity": res["SAF_selectivity"],
+            })
 
-for f, p, T, P in itertools.product(facets, promoters, T_grid, P_grid):
-    mult = PROMOTER_MULTIPLIER[p]
-    plant = CO2_to_SAF_Plant(
-        T_rwgs=673, P_bar=P, T_ft=T, catalyst_mass_g=1.0,
-        ft_co_conversion=0.51, promoter_multiplier=mult,
-    )
-    fresh = {"CO2": CALIBRATED_CO2_FEED, "H2": 3 * CALIBRATED_CO2_FEED}
-    res = plant.run_simulation(fresh, simulation_hours=1.0)
-
-    rows.append({
-        "facet": f,
-        "promoter": p,
-        "temperature_K": T,
-        "pressure_bar": P,
-        "STY_mg_gcat_h": res["STY_mg_gcat_h"],
-        "SAF_selectivity": res["SAF_selectivity"],
-    })
-    pbar.update(1)
-
-pbar.close()
 df = pd.DataFrame(rows)
 out_path = PROC_DIR / "synthetic_plant_runs.csv"
 df.to_csv(out_path, index=False)
